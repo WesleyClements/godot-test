@@ -10,6 +10,8 @@ on:
         options:
           - '4.4'
           - '4.3'
+env:
+  TEMPLATE_DIR: ~/.local/share/godot/export_templates/${{ inputs.godot-version }}.stable
 jobs:
   cache-engine:
     name: Cache Godot Engine
