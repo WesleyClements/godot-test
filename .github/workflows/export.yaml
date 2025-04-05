@@ -70,3 +70,30 @@ jobs:
         with:
           name: ${{ inputs.artifact_name }}
           path: build/web
+  deploy-gh-pages:
+    name: Deploy to GitHub Pages
+    needs: [export] # this job will run after the export job
+
+    permissions: # this is required to deploy to GitHub Pages
+      pages: write
+      id-token: write
+
+    environment: # this creates a deployment environment on GitHub that points to the GitHub Pages URL
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          # this is the path that actions/upload-pages-artifact@v3 uploads by default
+          path: _site
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
