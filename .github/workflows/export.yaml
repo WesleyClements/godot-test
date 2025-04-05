@@ -10,20 +10,23 @@ on:
         options:
           - '4.4'
           - '4.3'
-      artifact_name:
-        description: 'The name of the artifact to upload'
-        type: string
-        required: true
-        default: 'web'
 jobs:
   export:
-    name: Export # this is the name that will be displayed in the GitHub Actions UI
-    runs-on: ubuntu-latest # this is the OS that will be used to run the job
+    name: Export
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        export: # contains variations in configuration for the export job
+          - preset: Web
+            path: build/web
+            artifact_name: web
+          - preset: Windows Desktop
+            path: build/windows
+            artifact_name: windows
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # this will check out the branch that triggered the workflow
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Download Godot
@@ -32,10 +35,9 @@ jobs:
           repository: godotengine/godot
           tag: ${{ inputs.godot_version }}-stable
           filename: Godot_v${{ inputs.godot_version }}-stable_linux.x86_64.zip
-          extract: true # this will extract the zip file after downloading it
+          extract: true
 
       - name: Make Godot Executable
-        # we renamed the file for ease of use and make it executable
         shell: bash
         run: |
           mv Godot_v${{ inputs.godot_version }}-stable_linux.x86_64 godot_stable_linux.x86_64
@@ -51,25 +53,22 @@ jobs:
       - name: Extract Godot Templates
         shell: bash
         env:
-          # this is the path where the templates will be extracted to
-          OUTPUT_DIR: ~/.local/share/godot/export_templates/${{ inputs.godot_version }}.stable
+          TEMPLATE_DIR: ~/.local/share/godot/export_templates/${{ inputs.godot_version }}.stable
         run: |
-          mkdir -p ${{ env.OUTPUT_DIR }}
-          unzip -j Godot_v${{ inputs.godot_version }}-stable_export_templates.tpz templates/* -d ${{ env.OUTPUT_DIR }}
+          mkdir -p ${{ env.TEMPLATE_DIR }}
+          unzip -j Godot_v${{ inputs.godot_version }}-stable_export_templates.tpz templates/* -d ${{ env.TEMPLATE_DIR }}
 
-      - name: Export Project
+      - name: Export Project # this will run the export for each preset in the matrix
         shell: bash
-        env:
-          EXPORT_PRESET: Web # this is the name of the export preset we created earlier
         run: |
-          mkdir -p build/web
-          ./godot_stable_linux.x86_64 --headless --verbose --export-release "${{ env.EXPORT_PRESET }}"
+          mkdir -p ${{ matrix.export.path }}
+          ./godot_stable_linux.x86_64 --headless --verbose --export-release "${{ matrix.export.preset }}"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact_name }}
-          path: build/web
+          name: ${{ matrix.export.artifact_name }} # this is the name of the artifact that will be created
+          path: ${{ matrix.export.path }} # this is the path to the exported files
   deploy-gh-pages:
     name: Deploy to GitHub Pages
     needs: [export] # this job will run after the export job
@@ -87,7 +86,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.artifact_name }}
+          name: web
           # this is the path that actions/upload-pages-artifact@v3 uploads by default
           path: _site
 
