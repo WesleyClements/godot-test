@@ -1,4 +1,4 @@
-name: Godot Export v3
+name: Godot Export v4
 on:
   workflow_dispatch:
     inputs:
@@ -92,19 +92,95 @@ jobs:
             ${{ env.TEMPLATE_DIR }}/macos.zip
           key: ${{ steps.restore-export-template-cache.outputs.cache-primary-key }}
 
+  parse-export-presets:
+    name: Parse Export Presets
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.parse.outputs.matrix }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Parse Export Presets
+        id: parse
+        shell: python
+        run: |
+          import os
+          import json
+          import re
+
+          # read the export_presets.cfg file
+          with open("export_presets.cfg", "r") as f:
+            lines = f.readlines()
+
+          # this will hold the export presets
+          export_presets = []
+
+          # parse the file and create a list of export presets
+          for line in lines:
+            if line.strip() == "": # skip empty lines
+              continue
+
+            # check if the line is a preset marker
+            match = re.match(r"^\[preset\.(\d+)\]$", line)
+            if match:
+              preset_index = int(match.group(1))
+              preset_name = None
+              export_path = None
+              continue
+
+            # check if the line is a key-value pair
+            match = re.match(r"^(.+)=\"(.*)\"$", line)
+            if match:
+              key = match.group(1)
+              value = match.group(2)
+              match key:
+                case "name":
+                  preset_name = value
+                case "export_path":
+                  export_path = value
+
+            # if we don't have both a preset name or export path yet continue
+            if preset_name == None or export_path == None:
+              continue
+
+            if preset_name == "":
+              # skip if preset name is empty
+              print(f"::warning::Skipped Preset {preset_index} \"\": name is empty")
+            elif export_path == "":
+              # skip if export path is empty
+              print(f"::warning::Skipped Preset {preset_index} \"{preset_name}\": export_path is empty")
+            else:
+              # add the preset to the matrix
+              export_presets.append({
+                "preset": preset_name,
+                "path": os.path.dirname(export_path),
+                "artifact-name": preset_name.lower().replace(" ", "-") # this will be used as the name of the artifact
+              })
+
+            # reset the preset name and export path
+            preset_name = None
+            export_path = None
+
+          matrix = {
+            "export": export_presets
+          }
+
+          # Print the matrix for debugging
+          print(matrix)
+
+          # write the export presets to the job output
+          with open(os.environ["GITHUB_OUTPUT"], "w") as f:
+            f.write(f"matrix={json.dumps(matrix, separators=(',', ':'))}\n")
+
   export:
     name: Export
-    needs: [cache-engine, cache-templates]
+    needs: [cache-engine, cache-templates, parse-export-presets]
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        export:
-          - preset: Web
-            path: build/web
-            artifact-name: web
-          - preset: Windows Desktop
-            path: build/windows
-            artifact-name: windows
+      matrix: ${{ fromJson(needs.parse-export-presets.outputs.matrix) }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
