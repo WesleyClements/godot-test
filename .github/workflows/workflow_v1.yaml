@@ -14,6 +14,10 @@ jobs:
   export:
     name: Export
     runs-on: ubuntu-latest
+    env:
+      ENGINE_FILE: Godot_v${{ inputs.godot-version }}-stable_linux.x86_64
+      TEMPLATE_ZIP: Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz
+      TEMPLATE_DIR: ~/.local/share/godot/export_templates/${{ inputs.godot-version }}.stable
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -25,13 +29,13 @@ jobs:
         with:
           repository: godotengine/godot
           tag: ${{ inputs.godot-version }}-stable
-          filename: Godot_v${{ inputs.godot-version }}-stable_linux.x86_64.zip
+          filename: ${{ env.ENGINE_FILE }}.zip
           extract: true
 
       - name: Make Godot Executable
         shell: bash
         run: |
-          mv Godot_v${{ inputs.godot-version }}-stable_linux.x86_64 godot_stable_linux.x86_64
+          mv ${{ env.ENGINE_FILE }} godot_stable_linux.x86_64
           chmod +x godot_stable_linux.x86_64
 
       - name: Download Godot Templates
@@ -39,15 +43,13 @@ jobs:
         with:
           repository: godotengine/godot
           tag: ${{ inputs.godot-version }}-stable
-          filename: Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz
+          filename: ${{ env.TEMPLATE_ZIP }}
 
       - name: Extract Godot Templates
         shell: bash
-        env:
-          TEMPLATE_DIR: ~/.local/share/godot/export_templates/${{ inputs.godot-version }}.stable
         run: |
           mkdir -p ${{ env.TEMPLATE_DIR }}
-          unzip -j Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz templates/* -d ${{ env.TEMPLATE_DIR }}
+          unzip -j ${{ env.TEMPLATE_ZIP }} templates/* -d ${{ env.TEMPLATE_DIR }}
 
       - name: Export Project
         shell: bash

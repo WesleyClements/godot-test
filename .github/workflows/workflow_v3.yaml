@@ -16,6 +16,8 @@ jobs:
   cache-engine:
     name: Cache Godot Engine
     runs-on: ubuntu-latest
+    env:
+      ENGINE_FILE: Godot_v${{ inputs.godot-version }}-stable_linux.x86_64
     outputs:
       cache-key: ${{ steps.restore-engine-cache.outputs.cache-primary-key }}
     steps:
@@ -33,14 +35,14 @@ jobs:
         with:
           repository: godotengine/godot
           tag: ${{ inputs.godot-version }}-stable
-          filename: Godot_v${{ inputs.godot-version }}-stable_linux.x86_64.zip
+          filename: ${{ env.ENGINE_FILE }}.zip
           extract: true
 
       - name: Make Godot Executable
         if: steps.restore-engine-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          mv Godot_v${{ inputs.godot-version }}-stable_linux.x86_64 godot_stable_linux.x86_64
+          mv ${{ env.ENGINE_FILE }} godot_stable_linux.x86_64
           chmod +x godot_stable_linux.x86_64
 
       - name: Save Engine Cache
@@ -53,6 +55,8 @@ jobs:
   cache-templates:
     name: Cache Godot Templates
     runs-on: ubuntu-latest
+    env:
+      TEMPLATE_ZIP: Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz
     outputs:
       cache-key: ${{ steps.restore-export-template-cache.outputs.cache-primary-key }}
     steps:
@@ -73,14 +77,14 @@ jobs:
         with:
           repository: godotengine/godot
           tag: ${{ inputs.godot-version }}-stable
-          filename: Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz
+          filename: ${{ env.TEMPLATE_ZIP }}
 
       - name: Extract Godot Templates
         if: steps.restore-export-template-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           mkdir -p ${{ env.TEMPLATE_DIR }}
-          unzip -j Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz templates/* -d ${{ env.TEMPLATE_DIR }}
+          unzip -j ${{ env.TEMPLATE_ZIP }} templates/* -d ${{ env.TEMPLATE_DIR }}
 
       - name: Save Export Templates Cache
         if: steps.restore-export-template-cache.outputs.cache-hit != 'true'
